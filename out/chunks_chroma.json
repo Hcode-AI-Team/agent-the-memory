@@ -1,0 +1,24 @@
+[
+  {
+    "content": "Cliente premium. Histórico: 3 financiamentos conosco. Só aceita taxas abaixo de 1,0% a.m. Perfil conservador na negociação.",
+    "source": "sample_insights.csv",
+    "chunk_index": 0,
+    "metadata": {
+      "session_id": "sessao_premium",
+      "customer_id": "cli_001",
+      "tier": "premium",
+      "chunk_id": "0"
+    }
+  },
+  {
+    "content": "Sessão anterior: recusou proposta de 1,2%. Pediu prazo de 48 meses. Demonstrou sensibilidade a seguro embutido.",
+    "source": "sample_insights.csv",
+    "chunk_index": 0,
+    "metadata": {
+      "session_id": "sessao_002",
+      "customer_id": "cli_002",
+      "tier": "standard",
+      "chunk_id": "1"
+    }
+  }
+]

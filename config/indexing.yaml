@@ -1,0 +1,28 @@
+# Configuração do pipeline de indexação (RAG - Aula 5)
+# Assunto: insights de clientes, políticas e materiais de banco (especialistas)
+
+chunking:
+  chunk_size_chars: 512
+  overlap_chars: 64
+  strategy: recursive # fixed | by_paragraph | by_sentence | recursive
+
+csv:
+  text_column: content # coluna com texto a chunkar (fallback: text)
+  encoding: utf-8
+
+json:
+  text_path: content # campo de texto (ou path: data.text)
+  encoding: utf-8
+
+pdf:
+  merge_pages: true # true = concatena páginas e chunka; false = 1 doc por página
+
+embedding:
+  # Vertex AI Text Embedding (quando configurado)
+  model: text-multilingual-embedding-002
+  batch_size: 5
+
+vector_store:
+  # Preenchido por env (VECTOR_SEARCH_ENDPOINT_ID) ou mock
+  # endpoint_id: ...
+  use_mock_if_unconfigured: true

@@ -9,10 +9,29 @@ finops:
   amnesic_payload_tokens: 10000
 
 vector_search:
+  # Backend: chroma | vertex | mock (indexação e busca usam o mesmo)
+  backend: chroma
   # Limite máximo de documentos retornados na busca
   max_documents: 3
   # Score mínimo de similaridade para considerar o histórico relevante
   min_similarity_score: 0.70
+  # ChromaDB (quando backend: chroma)
+  chroma:
+    persist_directory: data/chroma
+    collection_name: customer_insights
+  # Vertex (quando backend: vertex)
+  # Env: VECTOR_SEARCH_ENDPOINT_ID, VECTOR_SEARCH_INDEX_ID, VECTOR_SEARCH_GCS_BUCKET, GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_REGION
+  # Opcional: VECTOR_SEARCH_DEPLOYED_INDEX_ID (id do índice implantado no endpoint)
+  vertex:
+    index_id: ""          # ou env VECTOR_SEARCH_INDEX_ID
+    gcs_bucket: ""        # ou env VECTOR_SEARCH_GCS_BUCKET (para batch upsert)
+    deployed_index_id: "" # ou env VECTOR_SEARCH_DEPLOYED_INDEX_ID (para find_neighbors)
+    content_store_path: data/vertex_content_store.jsonl  # id -> content para consulta
+    gcs_prefix: vertex_batch
+    is_complete_overwrite: false
+  # Mock (quando backend: mock)
+  mock:
+    path: data/vector_store_mock.jsonl
 
 session:
   # Tempo de vida do checkpoint da sessão em horas (ex: abandono de carrinho)

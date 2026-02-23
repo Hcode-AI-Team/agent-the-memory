@@ -1,7 +1,10 @@
+# Contagem de tokens (usamos encoding compatível com Gemini como aproximação)
 import tiktoken
+# Leitura do YAML com custos por 1k tokens e payload amnésico
 import yaml
 
 
+# Calcula custo estimado do modelo no modelo Stateful (checkpoint + RAG) vs abordagem Amnésica (histórico completo)
 class FinOpsTelemetry:
     """
     Calcula e compara o custo do modelo Arquitetural Stateful (ADK)
@@ -12,14 +15,16 @@ class FinOpsTelemetry:
         with open(config_path, encoding="utf-8") as f:
             self.config = yaml.safe_load(f)["finops"]
 
-        # Encodings do tiktoken como proxy de tokens Gemini
+        # Encoding cl100k_base é usado por modelos como GPT e aproximação para Gemini
         try:
             self.encoding = tiktoken.get_encoding("cl100k_base")
         except Exception:
             self.encoding = None
 
+    # Estima custo de um request no modelo stateful (só prompt + resposta atual, sem histórico gigante)
     def calculate_stateful_cost(self, prompt_text: str, response_text: str) -> float:
         """Calcula custo do modelo arquiteturado com Checkpointing + RAG vetorial."""
+        # Conta tokens de entrada; se tiktoken falhar, usa ~4 chars por token como fallback
         input_tokens = len(self.encoding.encode(prompt_text)) if self.encoding else len(prompt_text) // 4
         output_tokens = len(self.encoding.encode(response_text)) if self.encoding else len(response_text) // 4
 
@@ -27,11 +32,13 @@ class FinOpsTelemetry:
         cost_out = (output_tokens / 1000) * self.config["cost_per_1k_output"]
         return cost_in + cost_out
 
+    # Custo hipotético se enviássemos todo o histórico (ex.: 10k tokens) a cada request
     def get_amnesic_baseline_cost(self) -> float:
         """Custo hipotético de enviar o histórico completo (10k tokens)."""
         tokens = self.config["amnesic_payload_tokens"]
         return (tokens / 1000) * self.config["cost_per_1k_input"]
 
+    # Imprime tabela no console comparando custo Amnésico vs Stateful e percentual de economia
     def print_savings_report(self, stateful_cost: float):
         """Imprime relatório FinOps comparativo no console."""
         amnesic = self.get_amnesic_baseline_cost()
