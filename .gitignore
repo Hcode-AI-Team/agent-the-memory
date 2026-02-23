@@ -51,7 +51,7 @@ nul
 docs/*.md
 !docs/LAB-GUIADO-01-DETECCAO-RECUSA-LLM.md
 
-*.html
+
 LAB-DESAFIO.md
 
 docs/*.md
