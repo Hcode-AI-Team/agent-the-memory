@@ -66,6 +66,8 @@ def upsert_documents(
         for m in metadatas:
             row = {}
             for k, v in m.items():
+                if k is None or not isinstance(k, str):
+                    continue
                 if v is None or isinstance(v, (str, int, float, bool)):
                     row[k] = v
                 else:
@@ -78,7 +80,7 @@ def upsert_documents(
     if backend == "vertex":
         index_endpoint_id = index_endpoint_id or os.environ.get("VECTOR_SEARCH_ENDPOINT_ID")
         project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
-        location = location or os.environ.get("GOOGLE_CLOUD_REGION")
+        location = location or os.environ.get("GOOGLE_CLOUD_LOCATION")
         vertex_cfg = vs_cfg.get("vertex") or {}
         index_id = vertex_cfg.get("index_id") or os.environ.get("VECTOR_SEARCH_INDEX_ID")
         gcs_bucket = vertex_cfg.get("gcs_bucket") or os.environ.get("VECTOR_SEARCH_GCS_BUCKET")

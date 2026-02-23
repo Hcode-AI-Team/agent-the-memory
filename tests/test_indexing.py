@@ -53,6 +53,15 @@ def test_load_json(tmp_path):
     assert docs[0]["metadata"]["tipo"] == "faq"
 
 
+def test_load_txt(tmp_path):
+    txt_path = tmp_path / "doc.txt"
+    txt_path.write_text("Conteúdo do arquivo TXT.\nSegunda linha.", encoding="utf-8")
+    docs = load_documents_from_file(txt_path)
+    assert len(docs) == 1
+    assert docs[0]["text"] == "Conteúdo do arquivo TXT.\nSegunda linha."
+    assert docs[0]["metadata"]["source"] == "doc.txt"
+
+
 def test_embed_texts_mock_default_document():
     """Embedding mock com for_query=False (indexação) retorna vetores de mesma dimensão."""
     texts = ["um texto", "outro texto"]

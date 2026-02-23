@@ -53,3 +53,9 @@ docs/*.md
 
 *.html
 LAB-DESAFIO.md
+
+docs/*.md
+!lab_rag_chromadb_1h.md
+
+scripts/*.py
+!script/

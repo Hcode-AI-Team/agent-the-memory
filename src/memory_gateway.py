@@ -85,7 +85,7 @@ class LongTermMemoryGateway:
         self._min_similarity_score = float(vs_cfg.get("min_similarity_score", 0.70))
 
         self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
-        self.location = location or os.environ.get("GOOGLE_CLOUD_REGION")
+        self.location = location or os.environ.get("GOOGLE_CLOUD_LOCATION")
         self.index_endpoint = index_endpoint or os.environ.get("VECTOR_SEARCH_ENDPOINT_ID")
 
         self._chroma_collection = None
@@ -131,6 +131,12 @@ class LongTermMemoryGateway:
         """Lógica síncrona com retry; chamada via asyncio.to_thread."""
         if self._backend == "chroma" and self._chroma_collection is not None:
             try:
+                try:
+                    n = self._chroma_collection.count()
+                except Exception:
+                    n = 0
+                if n == 0:
+                    return ""
                 from src.indexing.embedding import embed_texts
                 query_embeddings = embed_texts([query], for_query=True)
                 if not query_embeddings:
@@ -145,11 +151,24 @@ class LongTermMemoryGateway:
                 results = self._chroma_collection.query(**kwargs)
                 docs = results.get("documents") or []
                 dists = results.get("distances") or []
-                if not docs or not docs[0]:
+                if not isinstance(docs, (list, tuple)) or not isinstance(dists, (list, tuple)):
+                    return ""
+                if not docs:
+                    return ""
+                first_docs = docs[0]
+                if first_docs is None or (hasattr(first_docs, "__len__") and not isinstance(first_docs, (str, dict)) and len(first_docs) == 0):
+                    return ""
+                doc_list = list(first_docs) if isinstance(first_docs, (list, tuple)) else [first_docs]
+                if not doc_list:
                     return ""
                 # Chroma cosine: menor distância = mais similar; similaridade = max(0, 1 - distance)
-                doc_list = docs[0]
-                dist_list = dists[0] if dists and len(dists) > 0 else [0.0] * len(doc_list)
+                dist_list = [0.0] * len(doc_list)
+                if dists and isinstance(dists, (list, tuple)) and len(dists) > 0:
+                    d0 = dists[0]
+                    if isinstance(d0, (list, tuple)):
+                        dist_list = list(d0)[: len(doc_list)]
+                    elif hasattr(d0, "__iter__") and not isinstance(d0, (str, dict)):
+                        dist_list = list(d0)[: len(doc_list)]
                 scored = []
                 for doc, dist in zip(doc_list, dist_list):
                     sim = max(0.0, 1.0 - float(dist))

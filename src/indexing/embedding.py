@@ -1,5 +1,5 @@
 """
-Embedding para indexação RAG. Vertex AI Text Embedding ou mock quando não configurado.
+Embedding para indexação RAG. Vertex AI via Google Gen AI SDK (google-genai) ou mock quando não configurado.
 """
 
 import hashlib
@@ -38,7 +38,7 @@ def embed_texts(
         return []
 
     project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
-    location = location or os.environ.get("GOOGLE_CLOUD_REGION")
+    location = location or os.environ.get("GOOGLE_CLOUD_LOCATION")
 
     if project_id and location:
         return _embed_vertex(
@@ -49,14 +49,21 @@ def embed_texts(
             batch_size=batch_size,
             for_query=for_query,
         )
-    logger.warning("Vertex não configurado (GOOGLE_CLOUD_PROJECT/REGION). Usando embeddings mock.")
+    logger.warning(
+        "Vertex não configurado (GOOGLE_CLOUD_PROJECT/REGION). "
+        "Usando embeddings mock — suficiente para o lab com ChromaDB; Vertex é opcional."
+    )
     return [_mock_embed(t) for t in texts]
 
 
-def _mock_embed(text: str, dim: int = 128) -> list[float]:
-    """Vetor determinístico por hash do texto (reprodutível para testes)."""
+def _mock_embed(text: str, dim: int = 768) -> list[float]:
+    """Vetor determinístico por hash do texto (reprodutível para testes). Dimensão 768 para compatibilidade com Vertex (text-multilingual-embedding-002)."""
     h = hashlib.sha256(text.encode("utf-8")).hexdigest()
-    return [(int(h[i : i + 2], 16) / 255.0 - 0.5) for i in range(0, min(dim * 2, len(h) - 1), 2)][:dim]
+    # Repete o padrão para preencher 768 dimensões (hash tem 64 chars hex = 32 bytes)
+    base = [(int(h[i : i + 2], 16) / 255.0 - 0.5) for i in range(0, min(64, len(h) - 1), 2)]
+    while len(base) < dim:
+        base = (base * ((dim // len(base)) + 1))[:dim]
+    return base
 
 
 def _embed_vertex(
@@ -68,19 +75,28 @@ def _embed_vertex(
     batch_size: int,
     for_query: bool = False,
 ) -> list[list[float]]:
-    import vertexai
-    from vertexai.language_models import TextEmbeddingModel
+    """Usa Google Gen AI SDK (google-genai) com Vertex AI para embeddings."""
+    from google import genai
+    from google.genai.types import EmbedContentConfig
 
     task_type = "RETRIEVAL_QUERY" if for_query else "RETRIEVAL_DOCUMENT"
-    vertexai.init(project=project_id, location=location)
-    embedding_model = TextEmbeddingModel.from_pretrained(model)
+    client = genai.Client(
+        vertexai=True,
+        project=project_id,
+        location=location,
+    )
     all_embeddings = []
     for i in range(0, len(texts), batch_size):
-        batch = texts[i : i + batch_size]
-        result = embedding_model.get_embeddings(
-            [t[:20_000] for t in batch],
-            task_type=task_type,
+        batch = [t[:20_000] for t in texts[i : i + batch_size]]
+        result = client.models.embed_content(
+            model=model,
+            contents=batch,
+            config=EmbedContentConfig(task_type=task_type),
         )
-        for emb in result:
-            all_embeddings.append(emb.values)
+        if not result.embeddings:
+            continue
+        for emb in result.embeddings:
+            vec = getattr(emb, "values", None) or emb
+            if vec is not None:
+                all_embeddings.append(list(vec))
     return all_embeddings

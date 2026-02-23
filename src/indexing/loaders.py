@@ -1,5 +1,5 @@
 """
-Loaders para pipeline de indexação: CSV, JSON e PDF.
+Loaders para pipeline de indexação: CSV, JSON, PDF e TXT.
 Retornam lista de documentos: cada um com 'text' e 'metadata' (source, etc.).
 """
 
@@ -16,7 +16,7 @@ def load_documents_from_file(
     pdf_merge_pages: bool = True,
 ) -> list[dict]:
     """
-    Carrega documentos de um arquivo (CSV, JSON ou PDF).
+    Carrega documentos de um arquivo (CSV, JSON, PDF ou TXT).
 
     Returns:
         Lista de dicts: [{"text": str, "metadata": dict}, ...]
@@ -34,7 +34,9 @@ def load_documents_from_file(
         return _load_json(path, text_path=json_text_path)
     if suffix == ".pdf":
         return _load_pdf(path, merge_pages=pdf_merge_pages)
-    raise ValueError(f"Formato não suportado: {suffix}. Use .csv, .json ou .pdf.")
+    if suffix == ".txt":
+        return _load_txt(path)
+    raise ValueError(f"Formato não suportado: {suffix}. Use .csv, .json, .pdf ou .txt.")
 
 
 def _load_csv(path: Path, text_column: str = "content") -> list[dict]:
@@ -89,6 +91,15 @@ def _load_json(path: Path, text_path: str = "content") -> list[dict]:
                     metadata[k] = v
             docs.append({"text": str(text).strip(), "metadata": metadata})
     return docs
+
+
+def _load_txt(path: Path, encoding: str = "utf-8") -> list[dict]:
+    """Carrega um arquivo TXT como um único documento."""
+    with open(path, encoding=encoding) as f:
+        text = f.read()
+    if not text.strip():
+        return []
+    return [{"text": text.strip(), "metadata": {"source": path.name}}]
 
 
 def _load_pdf(path: Path, merge_pages: bool = True) -> list[dict]:

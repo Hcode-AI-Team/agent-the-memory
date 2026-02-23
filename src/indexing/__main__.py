@@ -1,6 +1,7 @@
 """
-CLI do pipeline de indexação RAG: CSV, JSON, PDF -> chunking -> [embedding -> vector store].
+CLI do pipeline de indexação RAG: CSV, JSON, PDF, TXT -> chunking -> [embedding -> vector store].
 Uso: python -m src.indexing --config config/indexing.yaml --input f1.csv f2.json [--output chunks.json] [--push]
+Carrega .env da raiz do projeto (GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION) para usar Vertex nos embeddings.
 """
 
 import argparse
@@ -9,6 +10,14 @@ import logging
 import os
 import sys
 from pathlib import Path
+
+# Carregar .env da raiz do projeto antes dos imports que usam env (embedding)
+_repo_root = Path(__file__).resolve().parent.parent.parent
+try:
+    from dotenv import load_dotenv
+    load_dotenv(_repo_root / ".env", override=True)
+except ImportError:
+    pass
 
 import yaml
 
@@ -102,7 +111,7 @@ def run(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Pipeline de indexação RAG (CSV, JSON, PDF)")
+    parser = argparse.ArgumentParser(description="Pipeline de indexação RAG (CSV, JSON, PDF, TXT)")
     parser.add_argument("--config", type=Path, default=Path("config/indexing.yaml"), help="Arquivo YAML de configuração")
     parser.add_argument("--input", "-i", type=Path, nargs="+", required=True, help="Arquivos ou diretórios de entrada")
     parser.add_argument("--output", "-o", type=Path, default=None, help="Arquivo JSON de saída (chunks)")
@@ -113,13 +122,13 @@ def main() -> None:
     for p in args.input:
         p = Path(p)
         if p.is_dir():
-            for ext in ("*.csv", "*.json", "*.pdf"):
+            for ext in ("*.csv", "*.json", "*.pdf", "*.txt"):
                 inputs.extend(p.glob(ext))
         else:
             inputs.append(p)
 
     if not inputs:
-        logger.error("Nenhum arquivo de entrada (CSV, JSON ou PDF).")
+        logger.error("Nenhum arquivo de entrada (CSV, JSON, PDF ou TXT).")
         sys.exit(1)
 
     run(args.config, inputs, args.output, args.push)
