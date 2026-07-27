@@ -19,6 +19,8 @@ try:
 except ImportError:
     pass
 
+# Reduz ruído de telemetria do Chroma em labs
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 import yaml
 
 from src.indexing.chunking import chunk_text
@@ -94,8 +96,10 @@ def run(
         texts = [c["content"] for c in all_chunks]
         vectors = embed_texts(
             texts,
-            model=emb_cfg.get("model", "text-multilingual-embedding-002"),
+            model=emb_cfg.get("model"),
             batch_size=int(emb_cfg.get("batch_size", 5)),
+            backend=emb_cfg.get("backend"),
+            config_path=config_path,
         )
         ids = [c["metadata"].get("chunk_id", str(i)) for i, c in enumerate(all_chunks)]
         metadatas = [{**c["metadata"], "content": c["content"], "source": c["source"]} for c in all_chunks]

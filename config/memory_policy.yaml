@@ -13,8 +13,10 @@ vector_search:
   backend: chroma
   # Limite máximo de documentos retornados na busca
   max_documents: 3
-  # Score mínimo de similaridade para considerar o histórico relevante
-  min_similarity_score: 0.70
+  # Score mínimo de similaridade (cosine: max(0, 1 - distance) no Chroma).
+  # Com embeddings locais (MiniLM), 0.35–0.55 costuma ser um bom intervalo;
+  # com Vertex multilingual-002, valores mais altos (0.6–0.8) são comuns.
+  min_similarity_score: 0.35
   # ChromaDB (quando backend: chroma)
   chroma:
     persist_directory: data/chroma

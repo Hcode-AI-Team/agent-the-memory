@@ -6,6 +6,7 @@ __pycache__/
 # Virtual environments
 venv/
 .venv/
+.venv_rag/
 env/
 .env.local
 .env.*.local
@@ -47,15 +48,15 @@ Thumbs.db
 *.log
 nul
 
+# ChromaDB persistido (gerado na indexação; lab começa vazio)
+data/chroma/*
+!data/chroma/.gitkeep
+data/chroma_lab2/
 
-docs/*.md
-!docs/LAB-GUIADO-01-DETECCAO-RECUSA-LLM.md
+# Chunks gerados pelo pipeline
+out/*
+!out/.gitkeep
 
-
-LAB-DESAFIO.md
-
-docs/*.md
-!lab_rag_chromadb_1h.md
-
-scripts/*.py
-!script/
+# Modelos baixados localmente (sentence-transformers cache no projeto, se houver)
+.cache/
+models/

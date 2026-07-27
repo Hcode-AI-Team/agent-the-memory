@@ -26,9 +26,9 @@ def chunk_text(
 
     Args:
         text: texto a segmentar.
-        chunk_size: tamanho máximo do chunk em caracteres.
-        overlap: caracteres de sobreposição entre chunks (só em strategy=fixed).
-        strategy: "fixed" | "by_paragraph" | "by_sentence" | "recursive".
+        chunk_size: tamanho máximo do chunk (caracteres, ou tokens se strategy=by_tokens).
+        overlap: sobreposição entre chunks (chars em fixed; tokens em by_tokens).
+        strategy: "fixed" | "by_paragraph" | "by_sentence" | "recursive" | "by_tokens".
 
     Returns:
         Lista de strings (chunks).
@@ -41,9 +41,36 @@ def chunk_text(
         return _chunk_by_paragraph(text, chunk_size)
     if strategy == "by_sentence":
         return _chunk_by_sentence(text, chunk_size)
+    if strategy == "by_tokens":
+        return _chunk_by_tokens(text, chunk_size, overlap)
     if strategy == "recursive":
         return _chunk_recursive(text, chunk_size)
     return _chunk_fixed(text, chunk_size, overlap)
+
+
+def _chunk_by_tokens(text: str, chunk_size: int, overlap: int = 0) -> list[str]:
+    """
+    Chunk por tokens (tiktoken encoding cl100k_base).
+    chunk_size e overlap são contados em tokens, não em caracteres.
+    """
+    import tiktoken
+
+    enc = tiktoken.get_encoding("cl100k_base")
+    tokens = enc.encode(text)
+    if not tokens:
+        return []
+    overlap = min(max(0, overlap), max(0, chunk_size - 1))
+    chunks: list[str] = []
+    start = 0
+    while start < len(tokens):
+        end = min(start + chunk_size, len(tokens))
+        piece = enc.decode(tokens[start:end]).strip()
+        if piece:
+            chunks.append(piece)
+        if end >= len(tokens):
+            break
+        start = end - overlap if overlap else end
+    return chunks
 
 
 def _chunk_fixed(text: str, chunk_size: int, overlap: int) -> list[str]:

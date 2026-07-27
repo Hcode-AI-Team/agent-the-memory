@@ -65,7 +65,7 @@ def test_load_txt(tmp_path):
 def test_embed_texts_mock_default_document():
     """Embedding mock com for_query=False (indexação) retorna vetores de mesma dimensão."""
     texts = ["um texto", "outro texto"]
-    out = embed_texts(texts, for_query=False)
+    out = embed_texts(texts, for_query=False, backend="mock")
     assert len(out) == 2
     assert all(len(v) == len(out[0]) for v in out)
     assert len(out[0]) > 0
@@ -75,6 +75,30 @@ def test_embed_texts_mock_default_document():
 def test_embed_texts_mock_for_query():
     """Embedding mock com for_query=True (consulta) retorna vetores; API aceita parâmetro."""
     texts = ["query de busca"]
-    out = embed_texts(texts, for_query=True)
+    out = embed_texts(texts, for_query=True, backend="mock")
     assert len(out) == 1
     assert len(out[0]) > 0
+
+
+def test_embed_texts_local_semantic_similarity():
+    """Embedding local: 'tarifa de TED' mais próximo de texto de tarifas do que de empréstimo."""
+    pytest.importorskip("sentence_transformers")
+    from src.indexing.embedding import cosine_similarity
+
+    query = "Qual a tarifa de TED da conta premium?"
+    doc_tarifas = (
+        "TED: isento para conta premium até 5 por mês. Após isso, R$ 15,00 por TED."
+    )
+    doc_emprestimo = (
+        "Cliente premium: taxa a partir de 0,85% a.m., prazo de até 60 meses."
+    )
+    vectors = embed_texts(
+        [query, doc_tarifas, doc_emprestimo],
+        backend="local",
+        for_query=False,
+    )
+    assert len(vectors) == 3
+    assert all(len(v) == len(vectors[0]) for v in vectors)
+    sim_tarifas = cosine_similarity(vectors[0], vectors[1])
+    sim_emprestimo = cosine_similarity(vectors[0], vectors[2])
+    assert sim_tarifas > sim_emprestimo

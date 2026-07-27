@@ -1,76 +1,146 @@
-# Agente 3: The Memory
+# Agente 3: The Memory (RAG — Turma 2)
 
-Projeto didático e arquitetural para ensino de construção de Agentes de IA Stateful utilizando "Defense in Depth" com Máquinas de Estados (FSM) tipadas (Pydantic), FinOps em tokens e Checkpointing utilizando **Google ADK**. 
+Projeto didático para ensino de **RAG** (Retrieval-Augmented Generation) e agentes stateful: chunking, embeddings, ChromaDB local e memória de longo prazo com Google ADK.
 
-## 📋 Arquitetura de Estado (Stateful Agent Pattern)
+**Branch recomendada para a turma:** `rag-turma-2`
 
-Este laboratório rompe com o anti-pattern do "Agente Amnésico" que sempre recarrega todo o histórico a cada chamada (onerando tokens). Aqui nós dividimos a persistência em duas camadas orquestradas por **Gateways**:
+## Pré-requisitos
 
-1. **Short-Term Memory (Session Gateway)**: 
-   Salva o estado FSM *atual* da negociação no Vertex AI Session Service. Retém contadores (rejection_count), estágio do funil e política do cliente.
-2. **Long-Term Memory (Memory Gateway)**:
-   Acesso pontual (apenas quando justificado pelo funil) a um Vector Search do GCP para injetar no System Prompt insights prévios do relacionamento com o Banco.
+| Item | Obrigatório? | Notas |
+|------|--------------|--------|
+| Git | Sim | Para clonar o repositório |
+| Python **3.11+** | Sim | `python --version` |
+| Rede (1ª vez) | Sim | Download do modelo de embedding local (~90 MB) |
+| Docker | **Não** | Opcional; só para rodar o agente containerizado |
+| Conta GCP / Vertex AI | **Não** | Opcional; default usa embeddings locais |
+| API Key Google AI | Só se for rodar o **agente** conversacional | Labs de chunking/RAG funcionam sem |
 
-## 🚀 Instalação (Standalone)
+## Instalação rápida (labs de RAG)
 
 ```bash
-# Clone ou acesse este diretório de Lab
+git clone <url-do-repo> agente-3-the-memory
 cd agente-3-the-memory
+git checkout rag-turma-2
 
-# Ambiente virtual isolado
 python -m venv venv
-# Linux/Mac
-source venv/bin/activate
-# Windows
+# Windows:
 venv\Scripts\activate
+# Linux/macOS:
+# source venv/bin/activate
 
-# Instalação das bibliotecas e ADK
-pip install -r requirements.txt
+pip install -e ".[lab]"
 ```
 
-## 🛠️ Configuração do Google Cloud e do modelo LLM
+O extra `[lab]` inclui `sentence-transformers` (embeddings locais) e `fpdf2` (gerar PDF do lab).
 
-O agente usa o **Google ADK** com Gemini. É obrigatório configurar uma das opções abaixo.
+Verifique:
 
-### Opção A – Google AI (API Key, ideal para desenvolvimento local)
+```bash
+python -c "from src.indexing.chunking import chunk_text; from src.indexing.embedding import embed_texts; print('OK')"
+pytest tests/ -v
+```
 
-Crie uma API key em [Google AI Studio](https://aistudio.google.com/apikey) e defina:
+## Configuração de embeddings
+
+Em [`config/indexing.yaml`](config/indexing.yaml):
+
+```yaml
+embedding:
+  backend: local   # local | vertex | mock
+  model: paraphrase-multilingual-MiniLM-L12-v2
+```
+
+| Backend | Quando usar |
+|---------|-------------|
+| `local` | **Default da turma** — semântico, offline após download |
+| `vertex` | Com `GOOGLE_CLOUD_PROJECT` + `GOOGLE_CLOUD_LOCATION` |
+| `mock` | CI / smoke (hash; **sem** semântica real) |
+
+**Importante:** trocar de backend muda a dimensão do vetor. Apague `data/chroma` e reindexe.
+
+## Lab guiado (1 hora) — ciclo RAG completo
+
+Passo a passo: [docs/lab_rag_chromadb_1h.md](docs/lab_rag_chromadb_1h.md)
+
+Resumo:
+
+```bash
+python scripts/generate_lab_pdf.py
+python scripts/rag_query.py "Quais são as tarifas da conta premium e as condições para empréstimo pessoal?"
+# (vazio se chroma limpo)
+
+python -m src.indexing --config config/indexing.yaml --input data/lab --output out/chunks_lab.json --push
+
+python scripts/rag_query.py "Quais são as tarifas da conta premium e as condições para empréstimo pessoal?"
+# (trechos dos documentos)
+```
+
+## Labs de Chunking (Aula 1)
+
+| Lab | Tema | Doc |
+|-----|------|-----|
+| 1 | Anatomia do chunking (estratégias, size, overlap) | [docs/labs/lab1_anatomia_chunking.md](docs/labs/lab1_anatomia_chunking.md) |
+| 2 | Chunking × qualidade de retrieval (hit rate@k) | [docs/labs/lab2_chunking_retrieval.md](docs/labs/lab2_chunking_retrieval.md) |
+| 3 | Chunker próprio `by_tokens` (tiktoken) | [docs/labs/lab3_chunker_proprio.md](docs/labs/lab3_chunker_proprio.md) |
+
+Roteiro da aula: [docs/aula1_roteiro.md](docs/aula1_roteiro.md)
+
+## Arquitetura (visão rápida)
+
+```text
+Indexação:  loaders → chunking → embedding → ChromaDB (data/chroma)
+Consulta:   query → embedding → Chroma top-k → texto no prompt do agente
+```
+
+- Short-term memory: Session Gateway (FSM)
+- Long-term memory: [`src/memory_gateway.py`](src/memory_gateway.py) + Chroma
+
+## Docker (opcional)
+
+Só necessário se quiser subir o **agente** em container (não os labs de chunking):
+
+```bash
+# .env com GOOGLE_API_KEY ou variáveis Vertex
+docker compose up --build
+```
+
+O ChromaDB do lab é **embedded** (pasta local); não há serviço Docker de vector DB.
+
+## Vertex / Google AI (opcional — agente)
+
+### Opção A – Google AI (API Key)
 
 ```bash
 export GOOGLE_API_KEY="sua-api-key"
 ```
 
-Ou no `.env`:
-```
-GOOGLE_API_KEY=sua-api-key
-```
-
-### Opção B – Vertex AI (projeto GCP, usado na Masterclass)
-
-Para usar Vertex AI com Application Default Credentials:
+### Opção B – Vertex AI
 
 ```bash
 gcloud auth application-default login
 export GOOGLE_GENAI_USE_VERTEXAI=1
-export GOOGLE_CLOUD_PROJECT="banco-auto-finance-lab-01"
+export GOOGLE_CLOUD_PROJECT="seu-projeto"
 export GOOGLE_CLOUD_LOCATION="us-central1"
-export VECTOR_SEARCH_ENDPOINT_ID="<ID_FORNECIDO_NA_AULA>"
 ```
 
-*(Sem variáveis de sessão/Vector Search, o código usa mocks em memória e exibe avisos. Sem API key nem Vertex configurado, o modelo Gemini retorna erro de autenticação.)*
+## Execução do agente e testes
 
-## 🧑‍💻 Execução Local e Testes
-
-Para rodar a demonstração arquitetural orquestrada no `main.py`:
 ```bash
 python -m src.main
-```
-
-Para validar as políticas de Estado com `pytest`:
-```bash
 pytest tests/ -v
 ```
 
-## 📚 Documentação Adicional
-- **Lab guiado:** [Detecção de recusa pelo LLM](docs/LAB-GUIADO-01-DETECCAO-RECUSA-LLM.md) — passo a passo para implementar resposta estruturada e atualização condicional da FSM.
-- **Desafio hands-on:** [LAB-DESAFIO.md](LAB-DESAFIO.md) — instruções do desafio e detalhes de FinOps.
+## Materiais de teoria (HTML)
+
+- `index.html` — arquitetura de agentes / memória
+- `rag.html` / `rag_II.html` — RAG
+- `hybrid_search.html` — hybrid search (Aula 2)
+
+## Troubleshooting rápido
+
+| Problema | Ação |
+|----------|------|
+| `chromadb` / `pypdf` não encontrado | `pip install -e ".[lab]"` na raiz |
+| Consulta vazia após indexar | `backend: chroma` em `config/memory_policy.yaml`; confira `data/chroma` |
+| Dimensão incompatível no Chroma | Apague `data/chroma` e reindexe após trocar embedding backend |
+| Embeddings mock na mensagem de log | Instale `[lab]` ou defina `embedding.backend: local` |
