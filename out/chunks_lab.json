@@ -1,23 +1,5 @@
 [
   {
-    "content": "Conta Premium - Produto Banco (Lab RAG)\nA Conta Premium e um produto para clientes com maior relacionamento e renda. Beneficios:\n- Isencao de taxa de manutencao mensal.\n- TEDs: ate 5 gratuitos por mes; apos isso, R$ 15,00 por TED.\n- Saques em rede propria: ilimitados. Saques em rede 24h: R$ 10,00 cada.\n- Cartao de debito e credito sem anuidade no primeiro ano; segunda via a R$ 35,00.\n- Linha de credito pre-aprovada e taxas diferenciadas em emprestimo pessoal (a partir de 0,85%\na.m.).\nRequisitos para adesao:",
-    "source": "lab_conta_premium.pdf",
-    "chunk_index": 0,
-    "metadata": {
-      "pages": 1,
-      "chunk_id": "0"
-    }
-  },
-  {
-    "content": "- Renda mensal comprovada minima: R$ 5.000.\n- Manter saldo medio de R$ 10.000 ou aplicacoes equivalentes no trimestre.\nCanais de atendimento:\n- App, internet banking, agencia e central de relacionamento (telefone). Proposta de emprestimo\npode ser feita pelo agente virtual; condicoes sujeitas a analise de credito.\nDocumento gerado por scripts/generate_lab_pdf.py para o lab RAG ChromaDB.",
-    "source": "lab_conta_premium.pdf",
-    "chunk_index": 1,
-    "metadata": {
-      "pages": 1,
-      "chunk_id": "1"
-    }
-  },
-  {
     "content": "Conta premium isenta de taxa de manutenção mensal. Demais contas: R$ 25",
     "source": "lab_tarifas.csv",
     "chunk_index": 0,
@@ -28,7 +10,7 @@
       "null": [
         "00/mês."
       ],
-      "chunk_id": "2"
+      "chunk_id": "0"
     }
   },
   {
@@ -43,7 +25,7 @@
         " R$ 15",
         "00 por TED."
       ],
-      "chunk_id": "3"
+      "chunk_id": "1"
     }
   },
   {
@@ -57,7 +39,7 @@
       "null": [
         "00 cada."
       ],
-      "chunk_id": "4"
+      "chunk_id": "2"
     }
   },
   {
@@ -71,7 +53,7 @@
       "null": [
         "00 para todos os clientes."
       ],
-      "chunk_id": "5"
+      "chunk_id": "3"
     }
   },
   {
@@ -86,6 +68,24 @@
         "85% a.m. para clientes premium; 1",
         "20% a.m. para standard."
       ],
+      "chunk_id": "4"
+    }
+  },
+  {
+    "content": "Conta Premium - Produto Banco (Lab RAG)\nA Conta Premium e um produto para clientes com maior relacionamento e renda. Beneficios:\n- Isencao de taxa de manutencao mensal.\n- TEDs: ate 5 gratuitos por mes; apos isso, R$ 15,00 por TED.\n- Saques em rede propria: ilimitados. Saques em rede 24h: R$ 10,00 cada.\n- Cartao de debito e credito sem anuidade no primeiro ano; segunda via a R$ 35,00.\n- Linha de credito pre-aprovada e taxas diferenciadas em emprestimo pessoal (a partir de 0,85%\na.m.).\nRequisitos para adesao:",
+    "source": "lab_conta_premium.pdf",
+    "chunk_index": 0,
+    "metadata": {
+      "pages": 1,
+      "chunk_id": "5"
+    }
+  },
+  {
+    "content": "- Renda mensal comprovada minima: R$ 5.000.\n- Manter saldo medio de R$ 10.000 ou aplicacoes equivalentes no trimestre.\nCanais de atendimento:\n- App, internet banking, agencia e central de relacionamento (telefone). Proposta de emprestimo\npode ser feita pelo agente virtual; condicoes sujeitas a analise de credito.\nDocumento gerado por scripts/generate_lab_pdf.py para o lab RAG ChromaDB.",
+    "source": "lab_conta_premium.pdf",
+    "chunk_index": 1,
+    "metadata": {
+      "pages": 1,
       "chunk_id": "6"
     }
   },
