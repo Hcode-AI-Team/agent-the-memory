@@ -145,4 +145,5 @@ pytest tests/ -v
 | `chromadb` / `pypdf` não encontrado | `pip install -e ".[lab]"` na raiz |
 | Consulta vazia após indexar | `backend: chroma` em `config/memory_policy.yaml`; confira `data/chroma` |
 | Dimensão incompatível no Chroma | Apague `data/chroma` e reindexe após trocar embedding backend |
+| Erro ao abrir `data/chroma` criado com chromadb 0.5.x | Apague `data/chroma` e reindexe (o projeto agora usa chromadb 1.x) |
 | Embeddings mock na mensagem de log | Instale `[lab]` ou defina `embedding.backend: local` |
