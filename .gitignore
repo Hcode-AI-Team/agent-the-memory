@@ -49,9 +49,11 @@ Thumbs.db
 nul
 
 # ChromaDB persistido (gerado na indexação; lab começa vazio)
-data/chroma/*
-!data/chroma/.gitkeep
+data/chroma/
 data/chroma_lab2/
+
+# Artefatos gerados pelos labs (não versionar)
+data/lab/lab_conta_premium.pdf
 
 # Chunks gerados pelo pipeline
 out/*
