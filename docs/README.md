@@ -21,10 +21,12 @@ Material organizado em **3 aulas** (arco sugerido no roteiro da Aula 1), além d
 
 > Foco: aprofundar o fluxo de consulta (similaridade, filtros) e levar o vector store para a nuvem (Vertex AI).
 
-| # | Arquivo | Conteúdo |
-|---|---------|----------|
-| 1 | [01-tutorial-rag-memoria-longo-prazo.md](aula-02-retrieval-e-vector-search/01-tutorial-rag-memoria-longo-prazo.md) | Tutorial completo: chunks → embedding → vector store → consulta, arquivo por arquivo |
-| 2 | [02-tutorial-vertex-vector-search.md](aula-02-retrieval-e-vector-search/02-tutorial-vertex-vector-search.md) | Vertex AI Vector Search do zero: bucket, índice, endpoint e deploy no GCP |
+| # | Arquivo | Conteúdo | Duração |
+|---|---------|----------|---------|
+| 1 | [01-tutorial-rag-memoria-longo-prazo.md](aula-02-retrieval-e-vector-search/01-tutorial-rag-memoria-longo-prazo.md) | Tutorial completo: chunks → embedding → vector store → consulta, arquivo por arquivo | — |
+| 2 | [02-tutorial-vertex-vector-search.md](aula-02-retrieval-e-vector-search/02-tutorial-vertex-vector-search.md) | Vertex AI Vector Search do zero: bucket, índice, endpoint e deploy no GCP | — |
+| 3 | [03-lab1-anatomia-do-embedding.md](aula-02-retrieval-e-vector-search/03-lab1-anatomia-do-embedding.md) | **Lab 1 (grupo):** anatomia do embedding — dimensões, norma, determinismo e colisões em baixa dimensão | 25 min |
+| 4 | [04-lab2-lexico-vs-semantico.md](aula-02-retrieval-e-vector-search/04-lab2-lexico-vs-semantico.md) | **Lab 2 (grupo):** duelo com apostas — precisão léxica × similaridade semântica, mini-busca e caça à armadilha | 35 min |
 
 ## Aula 3 — Agente Stateful (FSM, Gateways e FinOps)
 
