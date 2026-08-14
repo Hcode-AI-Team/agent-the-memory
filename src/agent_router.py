@@ -155,7 +155,7 @@ class StatefulFinanceAgent:
         # (que inclui funnel_stage, proposed_rate, rejection_count, customer_tier).
         self.llm_agent = LlmAgent(
             name="StatefulAutoFinanceNegotiator",
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             instruction="Voce e um negociador de financiamentos. O contexto sera dinamicamente injetado.",
         )
 
