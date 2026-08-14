@@ -1,6 +1,6 @@
 # Documentação — Agente 3: The Memory (RAG)
 
-Material organizado em **3 aulas** (arco sugerido no roteiro da Aula 1), além de referência técnica e material do professor.
+Material organizado em **4 aulas** (arco sugerido no roteiro da Aula 1), além de referência técnica e material do professor.
 
 ## Aula 1 — Conceito RAG, Chunking e Embeddings
 
@@ -37,6 +37,19 @@ Material organizado em **3 aulas** (arco sugerido no roteiro da Aula 1), além d
 | 1 | [01-teoria-agente-the-memory.md](aula-03-agente-stateful/01-teoria-agente-the-memory.md) | Teoria: agente amnésico, arquitetura de memória, FSM, OCC, FinOps |
 | 2 | [02-lab-deteccao-recusa-llm.md](aula-03-agente-stateful/02-lab-deteccao-recusa-llm.md) | Lab guiado: detecção de recusa via structured output e FSM condicional |
 
+## Aula 4 — GCS, manuais e Vector Search na turma
+
+> Foco: subir PDF/TXT/CSV no bucket da **letra do grupo**, entender cada peça do Vector Search e ligar o `agent-the-memory` (Chroma local primeiro, depois o índice Vertex já criado). Autenticação: **Google ADC**, sem `GOOGLE_API_KEY`. Sufixo `grupo-0` = professor.
+
+| # | Arquivo | Conteúdo |
+|---|---------|----------|
+| 1 | [01-tutorial-gcs-upload-manuais.md](aula-04-gcs-e-vector-search/01-tutorial-gcs-upload-manuais.md) | Mapa do GCP, conferir índice/endpoint/deploy, upload manual no Cloud Storage |
+| 2 | [02-tutorial-agente-local-depois-vertex.md](aula-04-gcs-e-vector-search/02-tutorial-agente-local-depois-vertex.md) | RAG no Chroma (Parte A) e depois `--push` + consulta no Vector Search (Parte B) |
+
+Material visual (raiz do repo): [`vector_search.html`](../vector_search.html) — diagrama clicável, nomes por letra, fluxo indexação/consulta, quiz.
+
+Como o índice foi criado (não refazer na Aula 4): [02-tutorial-vertex-vector-search.md](aula-02-retrieval-e-vector-search/02-tutorial-vertex-vector-search.md).
+
 ## Referência técnica
 
 | Arquivo | Conteúdo |
@@ -56,3 +69,4 @@ Material organizado em **3 aulas** (arco sugerido no roteiro da Aula 1), além d
 - `index.html` — arquitetura de agentes / memória
 - `rag.html`, `rag_II.html`, `rag_agentic.html` — teoria de RAG
 - `hybrid_search.html` — hybrid search (Aula 2)
+- `vector_search.html` — anatomia do Vector Search (Aula 4): índice, endpoint, bucket, deploy

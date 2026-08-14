@@ -91,7 +91,9 @@ Cada lab tem versão **bash** e **PowerShell** (os links levam à página de esc
 
 Roteiro da aula: [docs/aula-01-chunking-e-embeddings/01-roteiro.md](docs/aula-01-chunking-e-embeddings/01-roteiro.md)
 
-Índice completo da documentação (aulas 1–3, referência e material do professor): [docs/README.md](docs/README.md)
+Índice completo da documentação (aulas 1–4, referência e material do professor): [docs/README.md](docs/README.md)
+
+Aula 4 (GCS + Vector Search da turma): [docs/aula-04-gcs-e-vector-search/01-tutorial-gcs-upload-manuais.md](docs/aula-04-gcs-e-vector-search/01-tutorial-gcs-upload-manuais.md) · visual: [`vector_search.html`](vector_search.html)
 
 ## Arquitetura (visão rápida)
 
@@ -143,6 +145,7 @@ pytest tests/ -v
 - `index.html` — arquitetura de agentes / memória
 - `rag.html` / `rag_II.html` — RAG
 - `hybrid_search.html` — hybrid search (Aula 2)
+- `vector_search.html` — Vector Search (Aula 4)
 
 ## Troubleshooting rápido
 
