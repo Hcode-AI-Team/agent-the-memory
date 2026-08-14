@@ -13,8 +13,9 @@ Visual: [`vector_search.html`](../../vector_search.html).
 
 1. Rodar indexação + `rag_query.py` com **Chroma** e embedding **local** (384 dimensões).
 2. Rodar `python -m src.main` autenticado por **ADC** (Gemini no Vertex), ainda sem Vector Search.
-3. Trocar configs para embedding **768** + backend **vertex**.
-4. Empurrar os manuais para o **seu** índice e consultar de novo com `rag_query.py` e com o agente.
+3. **Corrigir o código** (`vector_store.py`, `memory_gateway.py`, `memory_policy.yaml`) para o batch e o score DOT_PRODUCT funcionarem.
+4. Trocar configs para embedding **768** + backend **vertex**.
+5. Empurrar os manuais para o **seu** índice e consultar de novo com `rag_query.py` e com o agente.
 
 Autenticação desta turma: **Google ADC**, nunca `GOOGLE_API_KEY`.
 
@@ -179,13 +180,149 @@ Saída esperada: três respostas do negociador e um relatório FinOps no final.
 
 Se o LLM falhar com erro de credencial: refaça `gcloud auth application-default login`. Não adicione `GOOGLE_API_KEY`.
 
-**Checkpoint da Parte A:** `rag_query.py` devolve texto do lab **e** `python -m src.main` completa os três turnos. Só então passe para a Parte B.
+**Checkpoint da Parte A:** `rag_query.py` devolve texto do lab **e** `python -m src.main` completa os três turnos. Só então passe para as **correções de código** e depois a Parte B.
+
+---
+
+## Correções obrigatórias no código (antes da Parte B)
+
+Na validação da turma apareceram três bugs que **impedem** o Vector Search de funcionar. Cada aluno deve **abrir o arquivo no editor e aplicar a correção**. Não pule: se o `--push` cair em mock ou o `rag_query` voltar vazio, quase sempre foi um destes pontos.
+
+> Se ao dar `git pull` o arquivo **já** estiver igual ao “depois”, marque o checklist mesmo assim e leia o “por quê” — a prova é entender o erro.
+
+### Correção 1 — `src/indexing/vector_store.py` (upload + update do índice)
+
+**Problema:** a API exige `contentsDeltaUri` apontando para uma **pasta** GCS; o arquivo dentro deve terminar em `.json` (não `.jsonl`); e o update precisa **esperar o LRO** (`update_embeddings`). Sem isso o log pode mentir (“Push concluído”) e o índice fica vazio.
+
+Abra [`src/indexing/vector_store.py`](../../src/indexing/vector_store.py) e localize a função `_upsert_vertex`.
+
+**Troque a geração do arquivo temporário** para sufixo `.json`:
+
+```python
+with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
+    for doc_id, vec in zip(ids, vectors):
+        f.write(json.dumps({"id": doc_id, "embedding": vec}, ensure_ascii=False) + "\n")
+    tmp_path = f.name
+```
+
+**Troque o upload** para gravar dentro de uma pasta `update_<timestamp>/` e passar a **URI da pasta** (com `/` no final):
+
+```python
+prefix = vertex_cfg.get("gcs_prefix", "vertex_batch")
+batch_dir = f"{prefix}/update_{int(time.time() * 1000)}"
+blob_name = f"{batch_dir}/datapoints.json"
+gcs = GcsClient(project=project_id)
+bucket = gcs.bucket(gcs_bucket)
+blob = bucket.blob(blob_name)
+blob.upload_from_filename(tmp_path, content_type="application/json")
+gcs_uri = f"gs://{gcs_bucket}/{batch_dir}/"
+```
+
+**Troque o update do índice** (não use só `IndexServiceClient.update_index` sem esperar). Use o SDK e aguarde:
+
+```python
+is_complete = bool(vertex_cfg.get("is_complete_overwrite", False))
+aiplatform.init(project=project_id, location=location)
+index = aiplatform.MatchingEngineIndex(index_id)
+logger.info(
+    "Vertex Vector Search: enviando batch %s (%d documentos). Aguardando rebuild do índice...",
+    gcs_uri,
+    len(ids),
+)
+index.update_embeddings(contents_delta_uri=gcs_uri, is_complete_overwrite=is_complete)
+logger.info(
+    "Vertex Vector Search: índice atualizado a partir de %s (%d documentos).",
+    gcs_uri,
+    len(ids),
+)
+```
+
+Nos imports de `_upsert_vertex`, bastam:
+
+```python
+from google.cloud import aiplatform
+from google.cloud.storage import Client as GcsClient
+```
+
+(Pode remover `IndexServiceClient`, `UpdateIndexRequest`, `field_mask_pb2`, `struct_pb2` se não forem mais usados.)
+
+Checklist:
+
+- [ ] URI termina com `/` (pasta)
+- [ ] Arquivo se chama `datapoints.json`
+- [ ] Chama `index.update_embeddings(...)` (bloqueia até o rebuild — pode levar 15–30+ min)
+
+### Correção 2 — `config/memory_policy.yaml` (`score_mode`)
+
+**Problema:** o índice da turma usa **DOT_PRODUCT_DISTANCE**. Nessa medida, o campo `distance` do `find_neighbors` é o **produto escalar** (maior = mais similar). Se o código fizer `sim = 1 - distance`, scores bons (~0,8) viram ~0,2 e o filtro `min_similarity_score` joga tudo fora.
+
+Na seção `vector_search.vertex` de [`config/memory_policy.yaml`](../../config/memory_policy.yaml), **adicione**:
+
+```yaml
+  vertex:
+    index_id: ""
+    gcs_bucket: ""
+    deployed_index_id: ""
+    content_store_path: data/vertex_content_store.jsonl
+    gcs_prefix: vertex_batch
+    is_complete_overwrite: false
+    # dot_product = maior é melhor (DOT_PRODUCT_DISTANCE — desta turma)
+    # cosine / one_minus_distance = sim = 1 - d
+    score_mode: dot_product
+```
+
+Checklist:
+
+- [ ] Existe `score_mode: dot_product` em `vector_search.vertex`
+
+### Correção 3 — `src/memory_gateway.py` (usar o `score_mode`)
+
+**Problema:** o gateway sempre fazia `sim = 1.0 - distance`, certo para cosseno no Chroma, **errado** para o índice Vertex desta turma.
+
+Abra [`src/memory_gateway.py`](../../src/memory_gateway.py), no ramo `if self._backend == "vertex"`, **substitua** o bloco que calcula `sim` por:
+
+```python
+id_to_content = _load_vertex_content_store(self._vertex_content_store_path)
+vertex_cfg = self._vs_cfg.get("vertex") or {}
+score_mode = (vertex_cfg.get("score_mode") or "dot_product").lower()
+scored = []
+for neighbor in response[0]:
+    datapoint_id = getattr(neighbor, "datapoint_id", None) or getattr(neighbor, "id", None)
+    distance = float(getattr(neighbor, "distance", 1.0))
+    if datapoint_id is None:
+        continue
+    if score_mode in ("one_minus_distance", "cosine"):
+        sim = max(0.0, 1.0 - distance)
+    else:
+        sim = distance  # DOT_PRODUCT: maior = mais similar
+    if sim >= self._min_similarity_score:
+        content = id_to_content.get(str(datapoint_id), "")
+        if content:
+            scored.append((sim, content))
+```
+
+Checklist:
+
+- [ ] Com `score_mode: dot_product`, `sim = distance` (não `1 - distance`)
+
+### Correção 4 — `.env`: use o `id` do índice implantado
+
+Já visto no Tutorial 1. Confirme com:
+
+```bash
+gcloud ai index-endpoints describe SEU_ENDPOINT_ID \
+  --region=us-east1 \
+  --project=spartan-setting-485114-e3 \
+  --format="yaml(deployedIndexes)"
+```
+
+`VECTOR_SEARCH_DEPLOYED_INDEX_ID` = campo **`id:`**, não `displayName:`.
 
 ---
 
 ## Parte B — Ligar o Vector Search da sua letra
 
-Agora o embedding e o vector store passam a ser os da nuvem. O índice já existe (Tutorial 1); você só **alimenta** vetores e consulta.
+Agora o embedding e o vector store passam a ser os da nuvem. O índice já existe (Tutorial 1); você só **alimenta** vetores e consulta. **Só avance se as correções 1–4 estiverem feitas.**
 
 ### B.1 Completar o `.env`
 
@@ -199,8 +336,10 @@ GOOGLE_CLOUD_LOCATION=us-east1
 VECTOR_SEARCH_GCS_BUCKET=rag-spartan-bv2-grupo-X
 VECTOR_SEARCH_INDEX_ID=cole_o_id_numerico_do_indice
 VECTOR_SEARCH_ENDPOINT_ID=cole_o_id_numerico_do_endpoint
-VECTOR_SEARCH_DEPLOYED_INDEX_ID=endpoint-ap-index-rag-grupo-X
+VECTOR_SEARCH_DEPLOYED_INDEX_ID=cole_o_id_do_indice_implantado
 ```
+
+`VECTOR_SEARCH_DEPLOYED_INDEX_ID` é o campo **`id`** do `gcloud ai index-endpoints describe` (não o `displayName` da coluna “Índices implantados”). Exemplo do professor: `endpoint_ap_index_rag_grup_1786698815456`.
 
 Deixe `USE_VERTEX_SESSION` desligado (ausente ou `0`). Nesta aula só a **memória longa** vai para a nuvem.
 
@@ -231,6 +370,7 @@ vector_search:
     content_store_path: data/vertex_content_store.jsonl
     gcs_prefix: vertex_batch
     is_complete_overwrite: false
+    score_mode: dot_product
 ```
 
 Os três campos vazios em `vertex:` são preenchidos pelas **env** do `.env`. Não precisa colar os IDs duas vezes.
@@ -292,23 +432,18 @@ O que o Vertex faz ([`_upsert_vertex`](../../src/indexing/vector_store.py)):
 
 Esse último arquivo é obrigatório na consulta: o Vector Search devolve **IDs**, não o parágrafo. Sem content store local, `rag_query.py` acha vizinhos e imprime vazio.
 
-Saída esperada:
+Saída esperada (o comando **espera** o rebuild do índice; pode levar vários minutos):
 
 ```text
-INFO: Vertex Vector Search: batch enviado para gs://.../vertex_batch/update_....jsonl (N documentos). Rebuild pode levar minutos.
+INFO: Vertex Vector Search: enviando batch gs://.../vertex_batch/update_.../ (N documentos). Aguardando rebuild do índice...
+INFO: Vertex Vector Search: índice atualizado a partir de gs://... (N documentos).
 INFO: Vector store Vertex: content store atualizado em data/vertex_content_store.jsonl
 INFO: Push concluído: N documentos.
 ```
 
-Se cair em mock (`Vector store mock: ... jsonl`):
+Se aparecer `Falha ao escrever no Vertex... Usando mock` ou `Vector store mock:` — **não funcionou**. Corrija env/ADC/permissão e rode de novo. “Push concluído” com mock **não** alimenta o índice.
 
-- `.env` sem algum `VECTOR_SEARCH_*` ou sem `GOOGLE_CLOUD_LOCATION`
-- ADC inválido
-- Falha de permissão no bucket / índice
-
-Leia o `WARNING` imediatamente acima. Não siga em frente no mock.
-
-No Console: **Cloud Storage → seu bucket → `vertex_batch/`**. Deve existir pelo menos um `.jsonl`. Isso **não** é o PDF: é o alimento do índice.
+No Console: **Cloud Storage → seu bucket → `vertex_batch/`**. Deve existir uma pasta `update_.../` com `datapoints.json` (não o PDF).
 
 ### B.5 Esperar o rebuild
 
@@ -333,7 +468,7 @@ Se vier `(nenhum trecho recuperado)`:
 
 1. Content store existe e tem linhas? `data/vertex_content_store.jsonl`
 2. Rebuild terminou?
-3. `VECTOR_SEARCH_DEPLOYED_INDEX_ID` é **exatamente** o nome na coluna “Índices implantados”?
+3. `VECTOR_SEARCH_DEPLOYED_INDEX_ID` é o **`id`** do `gcloud ai index-endpoints describe` (não o displayName)?
 4. `min_similarity_score` alto demais? Teste `0.50` no YAML.
 5. Embedding da **query** também precisa ser Vertex 768. Se `indexing.yaml` ainda estiver `local`, a query tem 384 dimensões e o endpoint rejeita ou devolve lixo.
 
@@ -368,6 +503,7 @@ Os dois mundos **não** compartilham vetores. Reindexar no Vertex não apaga o C
 
 ## Checklist final
 
+- [ ] Aplicamos as **correções 1–4** (vector_store, score_mode, memory_gateway, deployed index `id`)
 - [ ] ADC ok (`gcloud config get-value project` = `spartan-setting-485114-e3`)
 - [ ] Parte A: `rag_query.py` com Chroma devolve trechos
 - [ ] Parte A: `python -m src.main` termina os 3 turnos
@@ -390,7 +526,10 @@ Os dois mundos **não** compartilham vetores. Reindexar no Vertex não apaga o C
 | `Vector store mock` no `--push` | Env incompleta ou exceção no Vertex | Confira as 4 variáveis `VECTOR_SEARCH_*` e `GOOGLE_CLOUD_LOCATION=us-east1` |
 | Erro de dimensão / consulta vazia depois do push | MiniLM 384 no índice 768 | `embedding.backend: vertex` na indexação **e** na query |
 | `rag_query` vazio, JSONL no bucket | Rebuild incompleto ou content store vazio | Espere o índice; confira `data/vertex_content_store.jsonl` |
-| `find_neighbors` falha | Índice não implantado ou `DEPLOYED_INDEX_ID` errado | Tutorial 1, passo 3.4; copie o nome da UI |
+| `find_neighbors` 404 / índice não encontrado | `DEPLOYED_INDEX_ID` = displayName em vez do `id` | `gcloud ai index-endpoints describe` e copie o campo `id` |
+| `find_neighbors` falha | Índice não implantado | Tutorial 1, passo 3.4; espere Pronto |
+| Push cai em mock | Env incompleta ou falha no update | Procure o WARNING; não aceite “Push concluído” com mock |
+| `rag_query` vazio com vizinhos no índice | Score errado para DOT_PRODUCT (`1 - distance`) | Confirme `vector_search.vertex.score_mode: dot_product` no YAML |
 | Upload no `grupo-0` | Recurso do professor | Pare. Use `grupo-X` |
 | Usei Mecanismo RAG | Outro produto | Ignore esse menu. Este repo = Vector Search + CLI |
 | Região `us-central1` no `.env` | Docs antigos do README | Troque para `us-east1` |

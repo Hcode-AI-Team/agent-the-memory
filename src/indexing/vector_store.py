@@ -148,14 +148,10 @@ def _upsert_vertex(
     gcs_bucket: str,
     vertex_cfg: dict | None = None,
 ) -> None:
-    """Faz upsert batch no Vertex AI Vector Search: JSONL no GCS + update index + content store local."""
+    """Faz upsert batch no Vertex AI Vector Search: JSON no GCS + update_embeddings + content store local."""
     try:
         from google.cloud import aiplatform
-        from google.cloud.aiplatform_v1 import IndexServiceClient
-        from google.cloud.aiplatform_v1.types import Index as IndexProtoType, UpdateIndexRequest
         from google.cloud.storage import Client as GcsClient
-        from google.protobuf import field_mask_pb2
-        from google.protobuf import struct_pb2
     except ImportError as e:
         raise NotImplementedError(
             "google.cloud.aiplatform e google.cloud.storage necessários para Vertex vector store."
@@ -166,46 +162,37 @@ def _upsert_vertex(
     content_store_path = Path(content_store_path)
     content_store_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # 1) Gerar JSONL no formato Vertex: id + embedding
+    # 1) Gerar JSONL (uma linha por datapoint); arquivo deve ter extensão .json/.csv/.avro
     import tempfile
     import time
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False, encoding="utf-8") as f:
-        for i, (doc_id, vec) in enumerate(zip(ids, vectors)):
-            content = (metadatas[i].get("content", "") if i < len(metadatas) else "") or ""
-            line = json.dumps({"id": doc_id, "embedding": vec}, ensure_ascii=False) + "\n"
-            f.write(line)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
+        for doc_id, vec in zip(ids, vectors):
+            f.write(json.dumps({"id": doc_id, "embedding": vec}, ensure_ascii=False) + "\n")
         tmp_path = f.name
 
     try:
-        # 2) Upload para GCS
+        # 2) Upload em diretório GCS (contentsDeltaUri = pasta, não arquivo único)
         prefix = vertex_cfg.get("gcs_prefix", "vertex_batch")
-        blob_name = f"{prefix}/update_{int(time.time() * 1000)}.jsonl"
+        batch_dir = f"{prefix}/update_{int(time.time() * 1000)}"
+        blob_name = f"{batch_dir}/datapoints.json"
         gcs = GcsClient(project=project_id)
         bucket = gcs.bucket(gcs_bucket)
         blob = bucket.blob(blob_name)
-        blob.upload_from_filename(tmp_path, content_type="application/jsonl")
-        gcs_uri = f"gs://{gcs_bucket}/{blob_name}"
+        blob.upload_from_filename(tmp_path, content_type="application/json")
+        gcs_uri = f"gs://{gcs_bucket}/{batch_dir}/"
 
-        # 3) Atualizar índice (metadata contentsDeltaUri)
-        is_complete = vertex_cfg.get("is_complete_overwrite", False)
-        if not index_id.startswith("projects/"):
-            index_name = f"projects/{project_id}/locations/{location}/indexes/{index_id}"
-        else:
-            index_name = index_id
-
-        client = IndexServiceClient(
-            client_options={"api_endpoint": f"{location}-aiplatform.googleapis.com"}
-        )
-        metadata_struct = struct_pb2.Struct()
-        metadata_struct.update({"contentsDeltaUri": gcs_uri, "isCompleteOverwrite": is_complete})
-        index_update = IndexProtoType(name=index_name, metadata=metadata_struct)
-        request = UpdateIndexRequest(
-            index=index_update,
-            update_mask=field_mask_pb2.FieldMask(paths=["metadata"]),
-        )
-        client.update_index(request=request)
+        # 3) Atualizar índice e esperar o LRO (rebuild batch pode levar vários minutos)
+        is_complete = bool(vertex_cfg.get("is_complete_overwrite", False))
+        aiplatform.init(project=project_id, location=location)
+        index = aiplatform.MatchingEngineIndex(index_id)
         logger.info(
-            "Vertex Vector Search: batch enviado para %s (%d documentos). Rebuild pode levar minutos.",
+            "Vertex Vector Search: enviando batch %s (%d documentos). Aguardando rebuild do índice...",
+            gcs_uri,
+            len(ids),
+        )
+        index.update_embeddings(contents_delta_uri=gcs_uri, is_complete_overwrite=is_complete)
+        logger.info(
+            "Vertex Vector Search: índice atualizado a partir de %s (%d documentos).",
             gcs_uri,
             len(ids),
         )
