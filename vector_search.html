@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aula 4 — Anatomia do Vector Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #070b14;
+        color: #f8fafc;
+      }
+      .font-mono {
+        font-family: "JetBrains Mono", monospace;
+      }
+      .gradient-text {
+        background: linear-gradient(100deg, #f8fafc 10%, #60a5fa 55%, #34d399);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid #334155;
+        color: #94a3b8;
+        background: #0f172a;
+      }
+      .pill-accent { border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; background: rgba(59, 130, 246, 0.1); }
+      .pill-emerald { border-color: rgba(52, 211, 153, 0.4); color: #6ee7b7; background: rgba(52, 211, 153, 0.1); }
+      .pill-amber { border-color: rgba(245, 158, 11, 0.4); color: #fcd34d; background: rgba(245, 158, 11, 0.1); }
+      .pill-rose { border-color: rgba(244, 63, 94, 0.4); color: #fda4af; background: rgba(244, 63, 94, 0.1); }
+      .card {
+        background: #0b1120;
+        border: 1px solid #1e293b;
+        border-radius: 1rem;
+      }
+      .card-hover { transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease; }
+      .card-hover:hover { transform: translateY(-3px); border-color: #475569; }
+      .piece {
+        cursor: pointer;
+        text-align: left;
+        width: 100%;
+        border: 1px solid #1e293b;
+        background: #0b1120;
+        border-radius: 0.85rem;
+        padding: 0.9rem 1rem;
+        transition: border-color 0.2s ease, background 0.2s ease;
+      }
+      .piece:hover { border-color: #475569; }
+      .piece.active {
+        border-color: #60a5fa;
+        background: rgba(59, 130, 246, 0.12);
+      }
+      .navlink { color: #94a3b8; transition: color 0.2s ease; font-size: 0.78rem; font-weight: 600; }
+      .navlink:hover { color: #f8fafc; }
+      .kbtn {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 0.3rem 0.7rem;
+        border-radius: 0.5rem;
+        border: 1px solid #334155;
+        color: #94a3b8;
+        background: #0f172a;
+        transition: all 0.15s ease;
+        cursor: pointer;
+      }
+      .kbtn.active { border-color: #60a5fa; color: #fff; background: rgba(59, 130, 246, 0.25); }
+      .flow-step {
+        opacity: 0.38;
+        transition: opacity 0.25s ease, border-color 0.25s ease;
+        border: 1px solid #1e293b;
+      }
+      .flow-step.on { opacity: 1; border-color: #34d399; }
+      .reveal-content { display: none; }
+      .reveal.open .reveal-content { display: block; }
+      .reveal.open .reveal-arrow { transform: rotate(90deg); }
+      .reveal-arrow { display: inline-block; transition: transform 0.2s ease; }
+      .namechip {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.72rem;
+        background: #030712;
+        border: 1px solid #1e293b;
+        border-radius: 0.4rem;
+        padding: 0.2rem 0.45rem;
+        color: #93c5fd;
+        word-break: break-all;
+      }
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .fade { animation: fadeUp 0.35s ease; }
+    </style>
+  </head>
+  <body class="antialiased">
+    <nav class="sticky top-0 z-50 backdrop-blur-md bg-[#070b14]/85 border-b border-slate-800">
+      <div class="max-w-6xl mx-auto px-5 py-3 flex items-center justify-between gap-4">
+        <span class="font-bold text-sm tracking-tight">Aula 4 · <span class="gradient-text">Vector Search</span></span>
+        <div class="hidden md:flex items-center gap-5">
+          <a href="#pecas" class="navlink">Peças</a>
+          <a href="#nomes" class="navlink">Sua letra</a>
+          <a href="#fluxo" class="navlink">Fluxo</a>
+          <a href="#mito" class="navlink">Mito</a>
+          <a href="#dims" class="navlink">384 vs 768</a>
+          <a href="#glossario" class="navlink">Glossário</a>
+        </div>
+      </div>
+    </nav>
+
+    <header class="max-w-6xl mx-auto px-5 pt-14 pb-10">
+      <div class="flex flex-wrap gap-2 mb-5">
+        <span class="pill pill-accent">Turma 2 · agent-the-memory</span>
+        <span class="pill pill-emerald">us-east1</span>
+        <span class="pill">Projeto spartan-setting-485114-e3</span>
+        <span class="pill pill-amber">ADC · sem API Key</span>
+      </div>
+      <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">
+        Anatomia do Vector Search:<br />
+        <span class="gradient-text">o que é cada peça?</span>
+      </h1>
+      <p class="mt-5 text-slate-400 max-w-3xl text-lg leading-relaxed">
+        Clique em cada caixa do diagrama. O Vector Search <strong class="text-slate-200">não é um único botão</strong>:
+        é um encadeamento de bucket, índice, endpoint e índice implantado. O agente só consulta
+        quando as quatro peças estão no lugar <em>e</em> o índice tem vetores de 768 dimensões.
+      </p>
+      <p class="mt-3 text-slate-500 text-sm max-w-3xl">
+        Tutoriais:
+        <a class="text-blue-300 hover:underline" href="docs/aula-04-gcs-e-vector-search/01-tutorial-gcs-upload-manuais.md">1 · Upload no GCS</a>
+        ·
+        <a class="text-blue-300 hover:underline" href="docs/aula-04-gcs-e-vector-search/02-tutorial-agente-local-depois-vertex.md">2 · Chroma e depois Vertex</a>
+      </p>
+    </header>
+
+    <section id="pecas" class="max-w-6xl mx-auto px-5 py-8">
+      <span class="pill pill-accent mb-3">Interativo</span>
+      <h2 class="text-2xl font-bold mt-2 mb-2">Cinco peças. Clique para abrir.</h2>
+      <p class="text-slate-400 text-sm mb-6 max-w-3xl">
+        Analogia rápida: o <strong class="text-slate-200">bucket</strong> é o depósito de papéis;
+        o <strong class="text-slate-200">índice</strong> é o fichário numérico;
+        o <strong class="text-slate-200">endpoint</strong> é o balcão;
+        o <strong class="text-slate-200">índice implantado</strong> é o funcionário que liga o fichário ao balcão.
+      </p>
+
+      <div class="grid lg:grid-cols-5 gap-3 mb-5">
+        <button type="button" class="piece active" data-piece="projeto" onclick="selectPiece('projeto')">
+          <div class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">1</div>
+          <div class="font-semibold mt-1">Projeto GCP</div>
+          <div class="text-xs text-slate-500 mt-1">A conta-mãe da turma</div>
+        </button>
+        <button type="button" class="piece" data-piece="bucket" onclick="selectPiece('bucket')">
+          <div class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">2</div>
+          <div class="font-semibold mt-1">Bucket</div>
+          <div class="text-xs text-slate-500 mt-1">Cloud Storage</div>
+        </button>
+        <button type="button" class="piece" data-piece="indice" onclick="selectPiece('indice')">
+          <div class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">3</div>
+          <div class="font-semibold mt-1">Índice</div>
+          <div class="text-xs text-slate-500 mt-1">Os 768 números</div>
+        </button>
+        <button type="button" class="piece" data-piece="endpoint" onclick="selectPiece('endpoint')">
+          <div class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">4</div>
+          <div class="font-semibold mt-1">Endpoint</div>
+          <div class="text-xs text-slate-500 mt-1">A porta da consulta</div>
+        </button>
+        <button type="button" class="piece" data-piece="deployed" onclick="selectPiece('deployed')">
+          <div class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">5</div>
+          <div class="font-semibold mt-1">Índice implantado</div>
+          <div class="text-xs text-slate-500 mt-1">A ligação 3 + 4</div>
+        </button>
+      </div>
+
+      <div id="piece-panel" class="card p-6 fade border-l-4 border-l-blue-500"></div>
+    </section>
+
+    <section id="nomes" class="max-w-6xl mx-auto px-5 py-10">
+      <span class="pill pill-emerald mb-3">Convenção da turma</span>
+      <h2 class="text-2xl font-bold mt-2 mb-3">Sua letra muda o nome de tudo</h2>
+      <p class="text-slate-400 text-sm mb-5 max-w-3xl">
+        Sufixo <span class="namechip">0</span> é o professor. Cada grupo usa uma letra.
+        Nunca edite recursos <span class="namechip">grupo-0</span>.
+      </p>
+      <div class="flex flex-wrap gap-2 mb-6" id="letter-row"></div>
+      <div class="card overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-slate-500 text-xs uppercase tracking-wider border-b border-slate-800">
+              <th class="p-4">Recurso</th>
+              <th class="p-4">Nome na sua letra</th>
+              <th class="p-4 hidden md:table-cell">Variável no .env</th>
+            </tr>
+          </thead>
+          <tbody class="font-mono text-xs">
+            <tr class="border-b border-slate-800">
+              <td class="p-4 text-slate-300">Bucket</td>
+              <td class="p-4 text-blue-300" id="n-bucket"></td>
+              <td class="p-4 text-slate-500 hidden md:table-cell">VECTOR_SEARCH_GCS_BUCKET</td>
+            </tr>
+            <tr class="border-b border-slate-800">
+              <td class="p-4 text-slate-300">Índice</td>
+              <td class="p-4 text-blue-300" id="n-index"></td>
+              <td class="p-4 text-slate-500 hidden md:table-cell">VECTOR_SEARCH_INDEX_ID (o número, não o nome)</td>
+            </tr>
+            <tr class="border-b border-slate-800">
+              <td class="p-4 text-slate-300">Endpoint</td>
+              <td class="p-4 text-blue-300" id="n-endpoint"></td>
+              <td class="p-4 text-slate-500 hidden md:table-cell">VECTOR_SEARCH_ENDPOINT_ID (o número)</td>
+            </tr>
+            <tr>
+              <td class="p-4 text-slate-300">Deployed index</td>
+              <td class="p-4 text-blue-300" id="n-deployed"></td>
+              <td class="p-4 text-slate-500 hidden md:table-cell">VECTOR_SEARCH_DEPLOYED_INDEX_ID</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-slate-500 text-xs mt-3">
+        Pasta de manuais: <span class="namechip" id="n-manuais"></span>
+        · JSONL gerado pelo pipeline: <span class="namechip" id="n-batch"></span>
+      </p>
+    </section>
+
+    <section id="fluxo" class="max-w-6xl mx-auto px-5 py-10">
+      <span class="pill pill-amber mb-3">Dois tempos</span>
+      <h2 class="text-2xl font-bold mt-2 mb-3">Indexar não é consultar</h2>
+      <p class="text-slate-400 text-sm mb-5">Escolha o fluxo e avance passo a passo. São APIs diferentes, no código e no Console.</p>
+      <div class="flex gap-2 mb-6">
+        <button type="button" class="kbtn active" id="btn-idx" onclick="setFlow('index')">Indexação</button>
+        <button type="button" class="kbtn" id="btn-qry" onclick="setFlow('query')">Consulta</button>
+        <button type="button" class="kbtn" onclick="stepFlow(-1)">Anterior</button>
+        <button type="button" class="kbtn" onclick="stepFlow(1)">Próximo</button>
+      </div>
+      <div class="grid md:grid-cols-4 gap-3 mb-5" id="flow-steps"></div>
+      <div id="flow-caption" class="card p-5 text-sm text-slate-300 leading-relaxed"></div>
+    </section>
+
+    <section id="mito" class="max-w-6xl mx-auto px-5 py-10">
+      <span class="pill pill-rose mb-3">Armadilha</span>
+      <h2 class="text-2xl font-bold mt-2 mb-3">O PDF no bucket não entra sozinho no índice</h2>
+      <p class="text-slate-400 text-sm mb-5">Marque verdadeiro ou falso. O gabarito aparece na hora.</p>
+      <div class="space-y-3" id="quiz"></div>
+    </section>
+
+    <section id="dims" class="max-w-6xl mx-auto px-5 py-10">
+      <span class="pill pill-accent mb-3">Dimensões</span>
+      <h2 class="text-2xl font-bold mt-2 mb-3">384 no notebook, 768 na nuvem</h2>
+      <p class="text-slate-400 text-sm mb-5 max-w-3xl">
+        O índice desta turma foi criado com <strong class="text-slate-200">768 dimensões</strong>
+        (modelo <span class="namechip">text-multilingual-embedding-002</span>).
+        O MiniLM local da Aula 1 gera <strong class="text-slate-200">384</strong>.
+        São mapas de tamanhos diferentes: um ponto de 384 coordenadas não cabe no fichário de 768.
+      </p>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="card p-6">
+          <div class="pill mb-3">Parte A · Chroma</div>
+          <p class="text-sm text-slate-300 leading-relaxed">
+            <span class="namechip">embedding.backend: local</span><br />
+            <span class="namechip">vector_search.backend: chroma</span>
+          </p>
+          <p class="text-sm text-slate-400 mt-3">Use na Parte A do Tutorial 2. Não aponte esse vetor para o índice Vertex.</p>
+        </div>
+        <div class="card p-6 border-blue-500/30">
+          <div class="pill pill-accent mb-3">Parte B · Vector Search</div>
+          <p class="text-sm text-slate-300 leading-relaxed">
+            <span class="namechip">embedding.backend: vertex</span><br />
+            <span class="namechip">vector_search.backend: vertex</span>
+          </p>
+          <p class="text-sm text-slate-400 mt-3">Indexação <em>e</em> query precisam do mesmo modelo. ADC, sem API Key.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="status" class="max-w-6xl mx-auto px-5 py-10">
+      <span class="pill mb-3">Console</span>
+      <h2 class="text-2xl font-bold mt-2 mb-3">O que a tela está tentando te dizer</h2>
+      <div class="overflow-x-auto card">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs uppercase tracking-wider text-slate-500 border-b border-slate-800">
+              <th class="p-4">Você vê</th>
+              <th class="p-4">Significa</th>
+              <th class="p-4">Pode consultar?</th>
+            </tr>
+          </thead>
+          <tbody class="text-slate-300">
+            <tr class="border-b border-slate-800">
+              <td class="p-4 font-medium">Índice Pronto, contagem densa --</td>
+              <td class="p-4 text-slate-400">Estrutura criada, ainda sem vetores (ou UI não mostrou)</td>
+              <td class="p-4 text-amber-300">Ainda não de verdade</td>
+            </tr>
+            <tr class="border-b border-slate-800">
+              <td class="p-4 font-medium">Link Implantar</td>
+              <td class="p-4 text-slate-400">Índice sem endpoint</td>
+              <td class="p-4 text-rose-300">Não</td>
+            </tr>
+            <tr class="border-b border-slate-800">
+              <td class="p-4 font-medium">Implantando</td>
+              <td class="p-4 text-slate-400">Deploy em andamento (minutos a ~30 min)</td>
+              <td class="p-4 text-rose-300">Não ainda</td>
+            </tr>
+            <tr>
+              <td class="p-4 font-medium">Deployed index Pronto + JSONL enviado</td>
+              <td class="p-4 text-slate-400">Balcão aberto e fichário alimentado</td>
+              <td class="p-4 text-emerald-300">Sim, depois do rebuild batch</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-slate-500 text-xs mt-3">
+        Região da lista: sempre <span class="namechip">us-east1</span>. Lista vazia quase sempre é dropdown na região errada.
+      </p>
+    </section>
+
+    <section id="glossario" class="max-w-6xl mx-auto px-5 py-10 pb-20">
+      <span class="pill mb-3">Glossário</span>
+      <h2 class="text-2xl font-bold mt-2 mb-5">Termos do console, em português</h2>
+      <div class="space-y-2" id="glossary"></div>
+      <p class="text-slate-500 text-xs mt-8">
+        Não use o menu <strong class="text-slate-400">Mecanismo RAG</strong> neste projeto.
+        O código chama Vector Search (<span class="namechip">find_neighbors</span>) e o CLI
+        <span class="namechip">python -m src.indexing --push</span>.
+      </p>
+    </section>
+
+    <script>
+      const PIECES = {
+        projeto: {
+          title: "Projeto GCP",
+          body: "É o container de faturamento e IAM. Nesta turma todos compartilham spartan-setting-485114-e3 (My First Project), org fiapconsulting.com. Isolamento entre grupos é pelo sufixo do nome (grupo-a, grupo-b), não por projeto separado. No seletor do topo do Console, confira o projeto antes de qualquer clique.",
+        },
+        bucket: {
+          title: "Cloud Storage (bucket)",
+          body: "Depósito de arquivos. Pasta manuais/ = PDF, TXT, CSV que você sobe à mão (Tutorial 1). Pasta vertex_batch/ = JSONL de vetores que o Python gera no --push (Tutorial 2). Subir o PDF não popula o índice. O CLI lê arquivos no disco local; o bucket é a fonte da turma e o destino do JSONL.",
+        },
+        indice: {
+          title: "Índice (Vector Search Index)",
+          body: "Fichário de embeddings. Config da turma: 768 dimensões, tree-AH, atualização em lote (batch), distância por produto escalar, shard pequeno. Status Pronto só diz que a estrutura existe. Sem vetores (contagem densa --) e sem deploy, o agente não tem o que perguntar. Matching Engine é o nome antigo do mesmo serviço.",
+        },
+        endpoint: {
+          title: "Endpoint de índice",
+          body: "Balcão HTTP autenticado. Público nesta turma (us-east1). A aplicação não cola o domínio vdb.vertexai.goog no .env: cola o ID numérico em VECTOR_SEARCH_ENDPOINT_ID e entra com ADC. Um endpoint pode hospedar um ou mais índices implantados.",
+        },
+        deployed: {
+          title: "Índice implantado (Deployed Index)",
+          body: "A ligação índice + endpoint. O nome que você escolhe no Implantar (padrão endpoint-ap-index-rag-grupo-X) é VECTOR_SEARCH_DEPLOYED_INDEX_ID, o argumento de find_neighbors. Sem isso, o endpoint está Pronto e a coluna Índices implantados mostra um traço.",
+        },
+      };
+
+      const FLOWS = {
+        index: [
+          { t: "Arquivos locais", d: "PDF, TXT, CSV em data/manuais/ (baixados do bucket ou copiados do repo). O CLI não lê gs:// sozinho." },
+          { t: "Chunk + embed 768", d: "python -m src.indexing --push com embedding.backend: vertex e text-multilingual-embedding-002." },
+          { t: "JSONL no GCS", d: "Sobe para vertex_batch/update_....jsonl no bucket da sua letra." },
+          { t: "Update do índice", d: "Batch rebuild. Espere Pronto. O content store local (id → texto) também é gravado: data/vertex_content_store.jsonl." },
+        ],
+        query: [
+          { t: "Pergunta", d: "rag_query.py ou o agente nas fases rate_proposed / analyzing_credit." },
+          { t: "Embed da query", d: "O mesmo modelo Vertex 768, task RETRIEVAL_QUERY. MiniLM 384 quebra a consulta." },
+          { t: "find_neighbors", d: "Chamada no endpoint com o deployed_index_id. Devolve IDs e distâncias, não o parágrafo." },
+          { t: "Content store", d: "O gateway traduz ID → texto em data/vertex_content_store.jsonl e injeta no prompt." },
+        ],
+      };
+
+      const QUIZ = [
+        { q: "Subir o PDF em manuais/ já deixa o Vector Search pesquisável.", a: false, why: "O índice guarda vetores. Só o --push (JSONL + update) alimenta o fichário." },
+        { q: "Índice com status Pronto significa que o agente já consulta.", a: false, why: "Falta implantar no endpoint e ter vetores. Pronto = estrutura criada." },
+        { q: "grupo-0 é o material do professor. Não faça upload nem Implantar nele.", a: true, why: "Cada grupo usa a própria letra no mesmo projeto compartilhado." },
+        { q: "Esta turma autentica com ADC (gcloud auth application-default login), não com GOOGLE_API_KEY.", a: true, why: "Gemini, embeddings, GCS e Vector Search usam a credencial ADC + GOOGLE_GENAI_USE_VERTEXAI=1." },
+        { q: "O Mecanismo RAG da barra lateral é o caminho oficial deste repositório.", a: false, why: "O código fala com Vector Search + CLI de indexação, não com o RAG Engine." },
+      ];
+
+      const GLOSS = [
+        ["ADC", "Application Default Credentials. Login local com gcloud; o SDK Python herda a identidade. Sem chave no .env."],
+        ["contentsDeltaUri", "URI GCS (arquivo ou pasta) que o índice batch lê para criar ou atualizar vetores."],
+        ["find_neighbors", "API de consulta: envia o vetor da pergunta e recebe os IDs mais próximos."],
+        ["tree-AH", "Algoritmo de vizinhos aproximados usado na criação do índice desta turma."],
+        ["DOT_PRODUCT / produto escalar", "Medida de distância do índice grupo-0. Tem que combinar com o embedding."],
+        ["Content store", "JSONL local id → content. O Vertex não devolve o texto do chunk; o gateway completa."],
+        ["Shard pequeno", "Tamanho do fragmento do índice (lab). Não muda o que você sobe no bucket."],
+        ["Mecanismo RAG", "Outro produto da Agent Platform. Fora do escopo do agent-the-memory."],
+      ];
+
+      let currentPiece = "projeto";
+      let currentLetter = "f";
+      let flowKind = "index";
+      let flowStep = 0;
+
+      function selectPiece(id) {
+        currentPiece = id;
+        document.querySelectorAll(".piece").forEach((el) => {
+          el.classList.toggle("active", el.dataset.piece === id);
+        });
+        const p = PIECES[id];
+        const panel = document.getElementById("piece-panel");
+        panel.innerHTML =
+          '<h3 class="text-lg font-bold mb-2">' +
+          p.title +
+          '</h3><p class="text-slate-300 text-sm leading-relaxed">' +
+          p.body +
+          "</p>";
+        panel.classList.remove("fade");
+        void panel.offsetWidth;
+        panel.classList.add("fade");
+      }
+
+      function renderLetters() {
+        const letters = ["0", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
+        const row = document.getElementById("letter-row");
+        row.innerHTML = letters
+          .map((L) => {
+            const label = L === "0" ? "0 professor" : L;
+            const extra = L === "0" ? " pill-rose" : "";
+            return (
+              '<button type="button" class="kbtn' +
+              (L === currentLetter ? " active" : "") +
+              extra +
+              '" onclick="setLetter(\'' +
+              L +
+              "')\">" +
+              label +
+              "</button>"
+            );
+          })
+          .join("");
+        document.getElementById("n-bucket").textContent = "rag-spartan-bv2-grupo-" + currentLetter;
+        document.getElementById("n-index").textContent = "agent-platform-index-rag-grupo-" + currentLetter;
+        document.getElementById("n-endpoint").textContent = "rag-endpoint-ap-grupo-" + currentLetter;
+        document.getElementById("n-deployed").textContent = "endpoint-ap-index-rag-grupo-" + currentLetter;
+        document.getElementById("n-manuais").textContent =
+          "gs://rag-spartan-bv2-grupo-" + currentLetter + "/manuais/";
+        document.getElementById("n-batch").textContent =
+          "gs://rag-spartan-bv2-grupo-" + currentLetter + "/vertex_batch/";
+      }
+
+      function setLetter(L) {
+        currentLetter = L;
+        renderLetters();
+      }
+
+      function setFlow(kind) {
+        flowKind = kind;
+        flowStep = 0;
+        document.getElementById("btn-idx").classList.toggle("active", kind === "index");
+        document.getElementById("btn-qry").classList.toggle("active", kind === "query");
+        renderFlow();
+      }
+
+      function stepFlow(delta) {
+        const n = FLOWS[flowKind].length;
+        flowStep = (flowStep + delta + n) % n;
+        renderFlow();
+      }
+
+      function renderFlow() {
+        const steps = FLOWS[flowKind];
+        document.getElementById("flow-steps").innerHTML = steps
+          .map((s, i) => {
+            return (
+              '<button type="button" class="flow-step card p-4 text-left' +
+              (i === flowStep ? " on" : "") +
+              '" onclick="flowStep=' +
+              i +
+              ';renderFlow()"><div class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Passo ' +
+              (i + 1) +
+              '</div><div class="font-semibold mt-1 text-sm">' +
+              s.t +
+              "</div></button>"
+            );
+          })
+          .join("");
+        document.getElementById("flow-caption").textContent = steps[flowStep].d;
+      }
+
+      function renderQuiz() {
+        document.getElementById("quiz").innerHTML = QUIZ.map((item, i) => {
+          return (
+            '<div class="card p-4" id="quiz-' +
+            i +
+            '"><p class="text-sm text-slate-200 mb-3">' +
+            (i + 1) +
+            ". " +
+            item.q +
+            '</p><div class="flex gap-2"><button type="button" class="kbtn" onclick="answerQuiz(' +
+            i +
+            ', true)">Verdadeiro</button><button type="button" class="kbtn" onclick="answerQuiz(' +
+            i +
+            ', false)">Falso</button></div><p class="text-xs mt-3 hidden" id="quiz-why-' +
+            i +
+            '"></p></div>'
+          );
+        }).join("");
+      }
+
+      function answerQuiz(i, val) {
+        const item = QUIZ[i];
+        const ok = val === item.a;
+        const el = document.getElementById("quiz-why-" + i);
+        el.classList.remove("hidden");
+        el.className = "text-xs mt-3 " + (ok ? "text-emerald-300" : "text-rose-300");
+        el.textContent = (ok ? "Certo. " : "Não. ") + item.why;
+      }
+
+      function renderGlossary() {
+        document.getElementById("glossary").innerHTML = GLOSS.map((pair, i) => {
+          return (
+            '<div class="reveal card"><button type="button" class="w-full text-left p-4 flex justify-between items-center" onclick="this.parentElement.classList.toggle(\'open\')"><span class="font-semibold text-sm">' +
+            pair[0] +
+            '</span><span class="reveal-arrow text-slate-500">›</span></button><div class="reveal-content px-4 pb-4 text-sm text-slate-400 leading-relaxed">' +
+            pair[1] +
+            "</div></div>"
+          );
+        }).join("");
+      }
+
+      selectPiece("projeto");
+      renderLetters();
+      renderFlow();
+      renderQuiz();
+      renderGlossary();
+    </script>
+  </body>
+</html>

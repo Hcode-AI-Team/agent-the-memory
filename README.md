@@ -85,6 +85,8 @@ python scripts/rag_query.py "Quais são as tarifas da conta premium e as condiç
 
 Roteiro da aula: [docs/aula1_roteiro.md](docs/aula1_roteiro.md)
 
+Aula 4 (GCS + Vector Search da turma): [docs/aula-04-gcs-e-vector-search/01-tutorial-gcs-upload-manuais.md](docs/aula-04-gcs-e-vector-search/01-tutorial-gcs-upload-manuais.md) · [Tutorial 2](docs/aula-04-gcs-e-vector-search/02-tutorial-agente-local-depois-vertex.md) · visual: [`vector_search.html`](vector_search.html)
+
 ## Arquitetura (visão rápida)
 
 ```text
@@ -135,6 +137,7 @@ pytest tests/ -v
 - `index.html` — arquitetura de agentes / memória
 - `rag.html` / `rag_II.html` — RAG
 - `hybrid_search.html` — hybrid search (Aula 2)
+- `vector_search.html` — Vector Search (Aula 4)
 
 ## Troubleshooting rápido
 
