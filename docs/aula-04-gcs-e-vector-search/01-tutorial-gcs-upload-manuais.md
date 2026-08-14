@@ -139,13 +139,14 @@ No `grupo-0` o endpoint é público (`Tipo de acesso: Público`) e fica em `us-e
 
 **O que é:** a **ligação** entre um índice e um endpoint. Sem essa ligação, o endpoint está “Pronto” mas não tem o que consultar.
 
-O professor nomeou o deployed index assim:
+O professor nomeou o deployed index assim na UI (nome de exibição):
 
 ```text
 endpoint-ap-index-rag-grupo-0
 ```
 
-Siga o mesmo padrão com a **sua letra**. Esse nome é o valor de `VECTOR_SEARCH_DEPLOYED_INDEX_ID` no Tutorial 2.
+**Atenção:** o valor de `VECTOR_SEARCH_DEPLOYED_INDEX_ID` **não** é esse nome de exibição. É o campo **`id`** do índice implantado (muitas vezes com underscores e um sufixo numérico). Confira no Tutorial 1, passo 3.4 / 3.5.
+
 
 Três estados comuns:
 
@@ -225,16 +226,36 @@ Tipo de acesso:           Público
 
 Na lista de **Índices**, coluna **Índices implantados**:
 
-- Se já aparece um nome (ex. `endpoint-ap-index-rag-grupo-X`): anote esse nome. Pule para 3.5.
+- Se já aparece um nome na coluna: anote o **nome de exibição**, mas o `.env` precisa do **`id`** (passo 3.5).
 - Se aparece o link **Implantar**:
   1. Clique em **Implantar**.
   2. Escolha o endpoint `rag-endpoint-ap-grupo-X`.
-  3. **ID do índice implantado:** `endpoint-ap-index-rag-grupo-X` (letras, números e hífen/underscore; sem espaços).
+  3. **ID do índice implantado:** use só letras, números e underscore (ex.: `endpoint_ap_index_rag_grupo_X`). Evite hífen se a UI permitir — o Google pode reescrever o id.
   4. Confirme e **espere** o status sair de **Implantando**. Não feche a aula e não rode o agente ainda.
 
 Na aba **Endpoints**, a coluna **Índices implantados** do seu endpoint deve deixar de ser `-`.
 
 ### Passo 3.5 — Folha de IDs (você vai colar no `.env` no Tutorial 2)
+
+O domínio público do endpoint **não** entra no `.env`. O que importa é o **ID numérico** do endpoint e o **`id`** do índice implantado.
+
+No Cloud Shell ou no terminal (substitua o ID do endpoint):
+
+```bash
+gcloud ai index-endpoints describe SEU_ENDPOINT_ID \
+  --region=us-east1 \
+  --project=spartan-setting-485114-e3 \
+  --format="yaml(deployedIndexes)"
+```
+
+Copie o campo **`id:`** (não o `displayName:`). Exemplo do professor:
+
+```text
+displayName: endpoint-ap-index-rag-grupo-0
+id: endpoint_ap_index_rag_grup_1786698815456   ← este vai no .env
+```
+
+Folha:
 
 ```text
 GOOGLE_CLOUD_PROJECT=spartan-setting-485114-e3
@@ -242,7 +263,7 @@ GOOGLE_CLOUD_LOCATION=us-east1
 VECTOR_SEARCH_GCS_BUCKET=rag-spartan-bv2-grupo-X
 VECTOR_SEARCH_INDEX_ID=________________
 VECTOR_SEARCH_ENDPOINT_ID=________________
-VECTOR_SEARCH_DEPLOYED_INDEX_ID=endpoint-ap-index-rag-grupo-X
+VECTOR_SEARCH_DEPLOYED_INDEX_ID=________________
 ```
 
 Guarde esse bloco. Sem esses números o Python não acha o **seu** índice (e pode, no pior caso, apontar para o lugar errado).

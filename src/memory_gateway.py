@@ -195,13 +195,20 @@ class LongTermMemoryGateway:
                 if not response or not response[0]:
                     return ""
                 id_to_content = _load_vertex_content_store(self._vertex_content_store_path)
+                # Índice da turma usa DOT_PRODUCT_DISTANCE: o campo "distance" da API é o
+                # produto escalar (maior = mais similar). Com COSINE_DISTANCE seria 1 - d.
+                vertex_cfg = self._vs_cfg.get("vertex") or {}
+                score_mode = (vertex_cfg.get("score_mode") or "dot_product").lower()
                 scored = []
                 for neighbor in response[0]:
                     datapoint_id = getattr(neighbor, "datapoint_id", None) or getattr(neighbor, "id", None)
                     distance = float(getattr(neighbor, "distance", 1.0))
                     if datapoint_id is None:
                         continue
-                    sim = max(0.0, 1.0 - distance)
+                    if score_mode in ("one_minus_distance", "cosine"):
+                        sim = max(0.0, 1.0 - distance)
+                    else:
+                        sim = distance
                     if sim >= self._min_similarity_score:
                         content = id_to_content.get(str(datapoint_id), "")
                         if content:

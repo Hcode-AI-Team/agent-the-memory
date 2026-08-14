@@ -31,6 +31,10 @@ vector_search:
     content_store_path: data/vertex_content_store.jsonl  # id -> content para consulta
     gcs_prefix: vertex_batch
     is_complete_overwrite: false
+    # Como interpretar o campo "distance" do find_neighbors:
+    #   dot_product = maior é melhor (DOT_PRODUCT_DISTANCE — padrão desta turma)
+    #   cosine / one_minus_distance = menor distância é melhor (sim = 1 - d)
+    score_mode: dot_product
   # Mock (quando backend: mock)
   mock:
     path: data/vector_store_mock.jsonl
